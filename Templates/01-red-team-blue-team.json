@@ -1,0 +1,220 @@
+{
+  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "name": "Red Team / Blue Team Cyber Range",
+  "description": "A comprehensive cyber range where students are split into red team (attackers) and blue team (defenders). Red team attempts to compromise target systems while blue team monitors, detects, and responds to attacks in real time.",
+  "version": "1.0.0",
+  "difficulty": "advanced",
+  "estimatedDurationMinutes": 240,
+  "vmDefinitions": [
+    {
+      "name": "Kali Linux (Red Team)",
+      "role": "attacker",
+      "os": "linux",
+      "image": "kali-linux-2024.1",
+      "cpu": 2,
+      "memoryMB": 4096,
+      "diskGB": 40,
+      "shared": false,
+      "networkInterfaces": [
+        {
+          "network": "attack-net",
+          "ipAddress": "10.{CLASS_ID}.{STUDENT_ID}.10"
+        }
+      ]
+    },
+    {
+      "name": "Windows 10 Workstation",
+      "role": "target",
+      "os": "windows",
+      "image": "windows-10-vulnerable",
+      "cpu": 2,
+      "memoryMB": 4096,
+      "diskGB": 60,
+      "shared": false,
+      "networkInterfaces": [
+        {
+          "network": "corporate-net",
+          "ipAddress": "10.{CLASS_ID}.{STUDENT_ID}.20"
+        }
+      ]
+    },
+    {
+      "name": "Windows Server (Active Directory)",
+      "role": "target",
+      "os": "windows",
+      "image": "windows-server-2019-ad",
+      "cpu": 2,
+      "memoryMB": 4096,
+      "diskGB": 60,
+      "shared": false,
+      "networkInterfaces": [
+        {
+          "network": "corporate-net",
+          "ipAddress": "10.{CLASS_ID}.{STUDENT_ID}.21"
+        }
+      ]
+    },
+    {
+      "name": "Linux Web Server",
+      "role": "target",
+      "os": "linux",
+      "image": "ubuntu-server-22.04-web",
+      "cpu": 1,
+      "memoryMB": 2048,
+      "diskGB": 20,
+      "shared": false,
+      "networkInterfaces": [
+        {
+          "network": "dmz-net",
+          "ipAddress": "10.{CLASS_ID}.{STUDENT_ID}.30"
+        }
+      ]
+    },
+    {
+      "name": "pfsense Firewall",
+      "role": "network",
+      "os": "freebsd",
+      "image": "pfsense-2.7",
+      "cpu": 2,
+      "memoryMB": 2048,
+      "diskGB": 20,
+      "shared": false,
+      "networkInterfaces": [
+        {
+          "network": "attack-net",
+          "ipAddress": "10.{CLASS_ID}.{STUDENT_ID}.1"
+        },
+        {
+          "network": "corporate-net",
+          "ipAddress": "10.{CLASS_ID}.{STUDENT_ID}.1"
+        },
+        {
+          "network": "dmz-net",
+          "ipAddress": "10.{CLASS_ID}.{STUDENT_ID}.1"
+        }
+      ]
+    },
+    {
+      "name": "Security Onion (Blue Team)",
+      "role": "monitor",
+      "os": "linux",
+      "image": "security-onion-2.4",
+      "cpu": 4,
+      "memoryMB": 8192,
+      "diskGB": 100,
+      "shared": true,
+      "networkInterfaces": [
+        {
+          "network": "corporate-net",
+          "ipAddress": "10.{CLASS_ID}.0.50"
+        }
+      ]
+    },
+    {
+      "name": "Splunk SIEM",
+      "role": "monitor",
+      "os": "linux",
+      "image": "splunk-enterprise-9.1",
+      "cpu": 4,
+      "memoryMB": 8192,
+      "diskGB": 100,
+      "shared": true,
+      "networkInterfaces": [
+        {
+          "network": "corporate-net",
+          "ipAddress": "10.{CLASS_ID}.0.51"
+        }
+      ]
+    }
+  ],
+  "objectives": [
+    {
+      "id": 1,
+      "title": "Initial Reconnaissance",
+      "description": "Perform network reconnaissance to identify live hosts, open ports, and running services within the target network.",
+      "flag": "FLAG{recon_complete_hosts_discovered_7a3b}",
+      "points": 100,
+      "hints": [
+        "Use nmap to scan the corporate network range.",
+        "Try different scan types: SYN scan, service version detection, and OS fingerprinting."
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Exploit Web Server Vulnerability",
+      "description": "Identify and exploit a vulnerability on the Linux web server to gain initial access.",
+      "flag": "FLAG{web_server_compromised_rce_9f1e}",
+      "points": 200,
+      "hints": [
+        "Enumerate the web application for common vulnerabilities.",
+        "Check for outdated software versions with known CVEs."
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Lateral Movement to Workstation",
+      "description": "Move laterally from the compromised web server to the Windows 10 workstation.",
+      "flag": "FLAG{lateral_movement_workstation_4d2c}",
+      "points": 200,
+      "hints": [
+        "Look for credentials or SSH keys on the web server.",
+        "Consider pass-the-hash or token impersonation techniques."
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Privilege Escalation on Active Directory",
+      "description": "Escalate privileges to domain admin on the Active Directory server.",
+      "flag": "FLAG{domain_admin_achieved_8b7a}",
+      "points": 300,
+      "hints": [
+        "Enumerate AD users, groups, and policies with BloodHound.",
+        "Look for Kerberoastable service accounts."
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Blue Team: Detect Initial Access",
+      "description": "Using Security Onion or Splunk, detect and document the initial access event on the web server.",
+      "flag": "FLAG{initial_access_detected_blue_5e9d}",
+      "points": 150,
+      "hints": [
+        "Review web server access logs and IDS alerts in Security Onion.",
+        "Correlate timestamps with network traffic captures."
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Blue Team: Identify Lateral Movement",
+      "description": "Detect and document the lateral movement activity between compromised systems.",
+      "flag": "FLAG{lateral_movement_detected_blue_3c8f}",
+      "points": 150,
+      "hints": [
+        "Look for unusual authentication events in Windows Security logs.",
+        "Monitor for abnormal SMB or WinRM traffic between hosts."
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Blue Team: Contain and Eradicate",
+      "description": "Implement containment measures to stop the attack and eradicate the attacker's persistence mechanisms.",
+      "flag": "FLAG{threat_contained_eradicated_2a6b}",
+      "points": 200,
+      "hints": [
+        "Use firewall rules to isolate compromised systems.",
+        "Check for scheduled tasks, new user accounts, and registry persistence."
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Write After-Action Report",
+      "description": "Both teams compile a comprehensive after-action report documenting the full attack chain, detection timeline, and lessons learned.",
+      "flag": "FLAG{after_action_report_complete_1d4e}",
+      "points": 100,
+      "hints": [
+        "Include a timeline of all red team and blue team activities.",
+        "Document recommendations for improving defenses."
+      ]
+    }
+  ]
+}
