@@ -1,0 +1,55 @@
+version: "3.8"
+
+services:
+  guacd:
+    image: guacamole/guacd:1.5.4
+    container_name: cyberlab-guacd
+    restart: unless-stopped
+    networks:
+      - guacamole-net
+    volumes:
+      - guacd-drive:/drive
+      - guacd-record:/record
+
+  guacamole:
+    image: guacamole/guacamole:1.5.4
+    container_name: cyberlab-guacamole
+    restart: unless-stopped
+    depends_on:
+      - guacd
+      - postgres
+    environment:
+      GUACD_HOSTNAME: guacd
+      GUACD_PORT: 4822
+      POSTGRESQL_HOSTNAME: postgres
+      POSTGRESQL_PORT: 5432
+      POSTGRESQL_DATABASE: guacamole_db
+      POSTGRESQL_USER: guacamole_user
+      POSTGRESQL_PASSWORD: ${GUAC_DB_PASSWORD}
+    ports:
+      - "8080:8080"
+    networks:
+      - guacamole-net
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: cyberlab-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: guacamole_db
+      POSTGRES_USER: guacamole_user
+      POSTGRES_PASSWORD: ${GUAC_DB_PASSWORD}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - guacamole-net
+
+volumes:
+  guacd-drive:
+  guacd-record:
+  postgres-data:
+
+networks:
+  guacamole-net:
+    driver: bridge

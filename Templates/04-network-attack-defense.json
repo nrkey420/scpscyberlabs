@@ -1,0 +1,162 @@
+{
+  "id": "d4e5f6a7-b8c9-0123-defa-234567890123",
+  "name": "Network Attack & Defense",
+  "description": "Network-focused lab covering reconnaissance, firewall analysis, man-in-the-middle attacks, and network hardening. Students learn both offensive network techniques and defensive measures to secure enterprise infrastructure.",
+  "version": "1.0.0",
+  "difficulty": "beginner",
+  "estimatedDurationMinutes": 120,
+  "vmDefinitions": [
+    {
+      "name": "Kali Linux",
+      "role": "attacker",
+      "os": "linux",
+      "image": "kali-linux-2024.1",
+      "cpu": 2,
+      "memoryMB": 4096,
+      "diskGB": 40,
+      "shared": false,
+      "networkInterfaces": [
+        {
+          "network": "attack-net",
+          "ipAddress": "10.{CLASS_ID}.{STUDENT_ID}.10"
+        }
+      ]
+    },
+    {
+      "name": "pfsense Firewall",
+      "role": "network",
+      "os": "freebsd",
+      "image": "pfsense-2.7",
+      "cpu": 2,
+      "memoryMB": 2048,
+      "diskGB": 20,
+      "shared": false,
+      "networkInterfaces": [
+        {
+          "network": "attack-net",
+          "ipAddress": "10.{CLASS_ID}.{STUDENT_ID}.1"
+        },
+        {
+          "network": "internal-net",
+          "ipAddress": "10.{CLASS_ID}.{STUDENT_ID}.1"
+        }
+      ]
+    },
+    {
+      "name": "Ubuntu Server",
+      "role": "target",
+      "os": "linux",
+      "image": "ubuntu-server-22.04",
+      "cpu": 1,
+      "memoryMB": 2048,
+      "diskGB": 20,
+      "shared": false,
+      "networkInterfaces": [
+        {
+          "network": "internal-net",
+          "ipAddress": "10.{CLASS_ID}.{STUDENT_ID}.20"
+        }
+      ]
+    },
+    {
+      "name": "Windows Server",
+      "role": "target",
+      "os": "windows",
+      "image": "windows-server-2019",
+      "cpu": 2,
+      "memoryMB": 4096,
+      "diskGB": 60,
+      "shared": false,
+      "networkInterfaces": [
+        {
+          "network": "internal-net",
+          "ipAddress": "10.{CLASS_ID}.{STUDENT_ID}.21"
+        }
+      ]
+    },
+    {
+      "name": "Vulnerable Router",
+      "role": "network",
+      "os": "linux",
+      "image": "vyos-1.4-vulnerable",
+      "cpu": 1,
+      "memoryMB": 1024,
+      "diskGB": 10,
+      "shared": false,
+      "networkInterfaces": [
+        {
+          "network": "internal-net",
+          "ipAddress": "10.{CLASS_ID}.{STUDENT_ID}.2"
+        }
+      ]
+    }
+  ],
+  "objectives": [
+    {
+      "id": 1,
+      "title": "Network Reconnaissance",
+      "description": "Perform comprehensive network reconnaissance to map the network topology, discover live hosts, and identify the operating systems and services running on each target.",
+      "flag": "FLAG{network_recon_topology_mapped_5a2d}",
+      "points": 100,
+      "hints": [
+        "Use nmap with -sn for host discovery, then follow up with detailed service scans.",
+        "Try traceroute to understand the network path and identify routing devices."
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Firewall Rule Analysis",
+      "description": "Analyze the pfsense firewall configuration to identify overly permissive rules, misconfigurations, and potential bypass opportunities.",
+      "flag": "FLAG{firewall_misconfig_identified_8c4f}",
+      "points": 150,
+      "hints": [
+        "Use nmap to probe firewall rules from different network segments.",
+        "Look for rules that allow unnecessary inbound traffic or use 'any' too broadly."
+      ]
+    },
+    {
+      "id": 3,
+      "title": "MITM Attack",
+      "description": "Execute a man-in-the-middle attack using ARP spoofing to intercept network traffic between two target hosts and capture credentials.",
+      "flag": "FLAG{mitm_credentials_captured_7e3b}",
+      "points": 200,
+      "hints": [
+        "Use arpspoof or ettercap to perform ARP poisoning between targets.",
+        "Capture traffic with Wireshark and look for plaintext credentials in HTTP or FTP."
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Port Scanning & Service Identification",
+      "description": "Perform detailed port scanning to identify all running services, their versions, and potential vulnerabilities on the vulnerable router and servers.",
+      "flag": "FLAG{services_enumerated_vulns_found_4d9a}",
+      "points": 100,
+      "hints": [
+        "Use nmap -sV for service version detection and -sC for default scripts.",
+        "Check identified service versions against CVE databases for known vulnerabilities."
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Firewall Hardening",
+      "description": "Harden the pfsense firewall by implementing proper rules to block the attacks performed earlier while maintaining legitimate network functionality.",
+      "flag": "FLAG{firewall_hardened_attacks_blocked_6b1e}",
+      "points": 150,
+      "hints": [
+        "Implement egress filtering and restrict outbound traffic to necessary ports only.",
+        "Enable ARP inspection or static ARP entries to prevent ARP spoofing."
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Network Defense Report",
+      "description": "Write a comprehensive network defense report documenting all vulnerabilities found, attacks executed, and hardening measures implemented with before/after comparisons.",
+      "flag": "FLAG{network_defense_report_complete_3f8c}",
+      "points": 100,
+      "hints": [
+        "Include network diagrams showing the topology and attack paths.",
+        "Document each firewall rule change with justification."
+      ]
+    }
+  ]
+}
