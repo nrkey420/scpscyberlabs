@@ -21,7 +21,7 @@ public class PowerShellExecutor : IPowerShellExecutor, IDisposable
             ?? throw new InvalidOperationException("PowerShell:ModulePath configuration is required.");
     }
 
-    public async Task<PowerShellResult> ExecuteAsync(string command, Dictionary<string, object>? parameters = null)
+    public async Task<PowerShellResult> ExecuteAsync(string scriptName, Dictionary<string, object?> parameters)
     {
         await _semaphore.WaitAsync();
         try
@@ -30,49 +30,45 @@ public class PowerShellExecutor : IPowerShellExecutor, IDisposable
 
             using var ps = System.Management.Automation.PowerShell.Create();
             ps.Runspace = _runspace;
-            ps.AddCommand(command);
+            ps.AddCommand(scriptName);
 
-            if (parameters != null)
+            foreach (var kvp in parameters)
             {
-                foreach (var kvp in parameters)
-                {
-                    ps.AddParameter(kvp.Key, kvp.Value);
-                }
+                ps.AddParameter(kvp.Key, kvp.Value);
             }
 
-            _logger.LogInformation("Executing PowerShell command: {Command}", command);
+            _logger.LogInformation("Executing PowerShell command: {Command}", scriptName);
 
             var outputCollection = await Task.Run(() => ps.Invoke());
 
             var result = new PowerShellResult
             {
                 Success = !ps.HadErrors,
-                Output = outputCollection.Select(o => o?.ToString() ?? string.Empty).ToList(),
-                RawOutput = string.Join(Environment.NewLine,
+                Output = string.Join(Environment.NewLine,
                     outputCollection.Select(o => o?.ToString() ?? string.Empty))
             };
 
             if (ps.HadErrors)
             {
-                result.Errors = ps.Streams.Error.Select(e => e.ToString()).ToList();
+                result.Error = string.Join("; ", ps.Streams.Error.Select(e => e.ToString()));
                 _logger.LogError("PowerShell command '{Command}' completed with errors: {Errors}",
-                    command, string.Join("; ", result.Errors));
+                    scriptName, result.Error);
             }
             else
             {
                 _logger.LogInformation("PowerShell command '{Command}' completed successfully with {Count} output objects.",
-                    command, result.Output.Count);
+                    scriptName, outputCollection.Count);
             }
 
             return result;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to execute PowerShell command: {Command}", command);
+            _logger.LogError(ex, "Failed to execute PowerShell command: {Command}", scriptName);
             return new PowerShellResult
             {
                 Success = false,
-                Errors = new List<string> { ex.Message }
+                Error = ex.Message
             };
         }
         finally
