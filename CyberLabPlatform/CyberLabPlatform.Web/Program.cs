@@ -5,6 +5,7 @@ using CyberLabPlatform.Web.Hubs;
 using CyberLabPlatform.Web.Services;
 using AspNetCoreRateLimit;
 using Hangfire;
+using Hangfire.AspNetCore;
 using Hangfire.PostgreSql;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
