@@ -197,7 +197,25 @@ public class HangfireDashboardAuthorizationFilter : Hangfire.Dashboard.IDashboar
     public bool Authorize(Hangfire.Dashboard.DashboardContext context)
     {
         var httpContext = _httpContextAccessor.HttpContext;
-        return httpContext?.User.Identity?.IsAuthenticated == true
+        if (httpContext is null)
+            return false;
+
+        return httpContext.User.Identity?.IsAuthenticated == true
             && httpContext.User.IsInRole("SystemAdministrator");
+    }
+}
+
+public partial class Program;
+
+
+/// <summary>
+/// Compatibility extension for Hangfire DashboardContext across package versions.
+/// Some versions do not expose GetHttpContext(); this fallback enables legacy calls.
+/// </summary>
+public static class HangfireDashboardContextExtensions
+{
+    public static HttpContext? GetHttpContext(this Hangfire.Dashboard.DashboardContext context)
+    {
+        return context.GetType().GetProperty("HttpContext")?.GetValue(context) as HttpContext;
     }
 }
