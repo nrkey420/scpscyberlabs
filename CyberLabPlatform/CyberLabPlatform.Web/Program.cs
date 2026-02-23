@@ -83,10 +83,6 @@ try
         });
     });
 
-    // HttpContext accessor (used by HangfireDashboardAuthorizationFilter)
-    builder.Services.AddHttpContextAccessor();
-    builder.Services.AddSingleton<HangfireDashboardAuthorizationFilter>();
-
     // Rate limiting
     builder.Services.AddMemoryCache();
     builder.Services.Configure<IpRateLimitOptions>(builder.Configuration.GetSection("IpRateLimiting"));
@@ -147,7 +143,7 @@ try
     app.MapHub<LabActivityHub>("/hubs/lab-activity");
     app.MapHangfireDashboard("/hangfire", new Hangfire.DashboardOptions
     {
-        Authorization = [app.Services.GetRequiredService<HangfireDashboardAuthorizationFilter>()]
+        Authorization = [new HangfireDashboardAuthorizationFilter()]
     });
     app.MapHealthChecks("/health");
 
@@ -187,17 +183,10 @@ finally
 /// </summary>
 public class HangfireDashboardAuthorizationFilter : Hangfire.Dashboard.IDashboardAuthorizationFilter
 {
-    private readonly IHttpContextAccessor _httpContextAccessor;
-
-    public HangfireDashboardAuthorizationFilter(IHttpContextAccessor httpContextAccessor)
-    {
-        _httpContextAccessor = httpContextAccessor;
-    }
-
     public bool Authorize(Hangfire.Dashboard.DashboardContext context)
     {
-        var httpContext = _httpContextAccessor.HttpContext;
-        return httpContext?.User.Identity?.IsAuthenticated == true
+        var httpContext = context.GetHttpContext();
+        return httpContext.User.Identity?.IsAuthenticated == true
             && httpContext.User.IsInRole("SystemAdministrator");
     }
 }
