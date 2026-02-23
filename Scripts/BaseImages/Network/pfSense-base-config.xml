@@ -1,0 +1,628 @@
+<?xml version="1.0"?>
+<!--
+  ============================================================================
+  pfSense-base-config.xml
+  SCPS CyberLab — pfSense 2.7 Base Template Configuration
+  ============================================================================
+
+  PURPOSE:
+    Pre-built config.xml that is staged into /conf/ during the base image
+    build (by Build-pfSense.sh).  Deploy-time substitution replaces the
+    placeholder tokens with real per-student values:
+
+    PLACEHOLDER                 REPLACED WITH
+    ─────────────────────────── ────────────────────────────────────────────
+    ADMIN_BCRYPT_HASH           bcrypt hash of student's lab admin password
+    LAN_IP_PLACEHOLDER          10.<ClassId>.<StudentId>.1
+    LAN_SUBNET_PLACEHOLDER      24
+    WAN_IP_PLACEHOLDER          dhcp  (or static if external switch is routed)
+    HOSTNAME_PLACEHOLDER        pfsense-c<ClassId>-s<StudentId>
+    OPT1_IP_PLACEHOLDER         10.<ClassId>.<StudentId+50>.1  (DMZ segment)
+
+  IMPORT METHOD:
+    - Automated: Build-pfSense.sh copies this file to /conf/config.xml.
+    - Manual:    pfSense GUI -> Diagnostics -> Backup/Restore -> Restore Config.
+
+  pfSense version: 2.7.x  (FreeBSD 14)
+  Configuration revision format: pfSense 2.5+ uses this XML schema.
+  ============================================================================
+-->
+<pfsense>
+
+  <!-- ======================================================================
+       SYSTEM — Hostname, domain, timezone, locale, admin user
+       ====================================================================== -->
+  <system>
+
+    <!-- Optimised scheduler for VMs — powerd causes latency in Hyper-V -->
+    <optimization>normal</optimization>
+
+    <!-- Hostname and domain — overridden at deploy time -->
+    <hostname>HOSTNAME_PLACEHOLDER</hostname>
+    <domain>lab.scps.local</domain>
+
+    <!-- DNS servers used by pfSense itself (WAN side resolution) -->
+    <dnsserver>8.8.8.8</dnsserver>
+    <dnsserver>8.8.4.4</dnsserver>
+
+    <!-- DNS resolver (Unbound) uses these for forwarding -->
+    <dnsallowoverride>1</dnsallowoverride>
+
+    <!-- Timezone (Eastern — adjust per deployment region) -->
+    <timezone>America/New_York</timezone>
+    <timeservers>0.pfsense.pool.ntp.org</timeservers>
+
+    <!-- Language / locale -->
+    <language>en_US</language>
+
+    <!-- ── User accounts ──────────────────────────────────────────────── -->
+    <!-- Only the built-in admin account.  Student accounts are not created
+         on pfSense — access is via RDP to their Windows/Linux VMs.         -->
+    <user>
+      <name>admin</name>
+      <descr>System Administrator</descr>
+      <scope>system</scope>
+      <groupname>admins</groupname>
+      <!-- ADMIN_BCRYPT_HASH is replaced at deploy time.
+           Format: $2y$11$<22-char-salt><31-char-hash>
+           The placeholder below is a bcrypt hash of "LabAdmin2024!" at cost=11.
+           It is overwritten by Build-pfSense.sh and then again at deploy time. -->
+      <password>ADMIN_BCRYPT_HASH</password>
+      <bcrypt-hash>yes</bcrypt-hash>
+      <uid>0</uid>
+      <priv>
+        <name>page-all</name>
+      </priv>
+    </user>
+
+    <!-- ── Admin access ───────────────────────────────────────────────── -->
+    <!-- SSH enabled on port 22 — password + key auth -->
+    <enablesshd>1</enablesshd>
+    <sshdkeyonly>disabled</sshdkeyonly>
+    <sshport>22</sshport>
+
+    <!-- Console menu — keep accessible for student troubleshooting -->
+    <!-- Note: NOT setting <noconsolemenu> so menu stays visible       -->
+
+    <!-- Web GUI — HTTPS on 443, self-signed cert is auto-generated    -->
+    <webgui>
+      <protocol>https</protocol>
+      <ssl-certref><!-- auto-generated cert UID --></ssl-certref>
+      <port>443</port>
+      <loginautocomplete></loginautocomplete>
+      <loginmaxattempt>5</loginmaxattempt>
+    </webgui>
+
+    <!-- ── Logging ────────────────────────────────────────────────────── -->
+    <syslog>
+      <filterdescriptions>1</filterdescriptions>
+      <reverse>1</reverse>
+      <nologdefaultpass>1</nologdefaultpass>
+      <nologdefaultblock></nologdefaultblock>
+      <nologbogons></nologbogons>
+    </syslog>
+
+    <!-- ── Miscellaneous ─────────────────────────────────────────────── -->
+    <disablenatreflection>yes</disablenatreflection>
+    <disablesegmentationoffloading>1</disablesegmentationoffloading>
+    <disablelargereceiveoffloading>1</disablelargereceiveoffloading>
+    <!-- Above offloading settings improve compatibility inside Hyper-V -->
+
+    <powerd_ac_mode>hadp</powerd_ac_mode>
+    <powerd_battery_mode>hadp</powerd_battery_mode>
+    <powerd_normal_mode>hadp</powerd_normal_mode>
+
+    <!-- Bogon network list — updated automatically -->
+    <bogons>
+      <interval>monthly</interval>
+    </bogons>
+
+  </system>
+
+  <!-- ======================================================================
+       INTERFACES — WAN, LAN, OPT1
+       Interface names (vtnet0/hn0 etc.) are set by Build-pfSense.sh at
+       build time after hardware detection.  IP placeholders are replaced
+       at deploy time.
+       ====================================================================== -->
+  <interfaces>
+
+    <!-- ── WAN ─────────────────────────────────────────────────────────── -->
+    <!-- Gets its IP from the Hyper-V External Virtual Switch (DHCP).
+         blockpriv and blockbogons are disabled because the WAN side
+         in a lab environment IS RFC1918 space.                              -->
+    <wan>
+      <enable>1</enable>
+      <if>hn0</if>
+      <!-- if value is replaced by Build-pfSense.sh after hardware detection -->
+      <descr>WAN</descr>
+      <ipaddr>WAN_IP_PLACEHOLDER</ipaddr>
+      <!-- WAN_IP_PLACEHOLDER = 'dhcp' unless deployer specifies static -->
+      <ipaddrv6>none</ipaddrv6>
+      <!-- Do NOT block RFC1918 on WAN — lab WAN is a private lab subnet -->
+      <blockpriv></blockpriv>
+      <blockbogons></blockbogons>
+      <spoofmac></spoofmac>
+    </wan>
+
+    <!-- ── LAN ─────────────────────────────────────────────────────────── -->
+    <!-- Connects to the student's private lab network segment.
+         IP is 10.<ClassId>.<StudentId>.1/24 — the default gateway
+         for all VMs on that student's segment.                              -->
+    <lan>
+      <enable>1</enable>
+      <if>hn1</if>
+      <!-- if value is replaced by Build-pfSense.sh after hardware detection -->
+      <descr>LAN</descr>
+      <ipaddr>LAN_IP_PLACEHOLDER</ipaddr>
+      <!-- LAN_IP_PLACEHOLDER -> e.g. 10.1.3.1 -->
+      <subnet>LAN_SUBNET_PLACEHOLDER</subnet>
+      <!-- LAN_SUBNET_PLACEHOLDER -> 24 -->
+      <ipaddrv6>none</ipaddrv6>
+      <spoofmac></spoofmac>
+    </lan>
+
+    <!-- ── OPT1 ────────────────────────────────────────────────────────── -->
+    <!-- Third segment — used in multi-zone labs:
+         Lab 1 (Red/Blue): DMZ segment (10.<C>.<S+50>.1/24)
+         Lab 4 (NetAtk):   Pivot/internal-net
+         Not connected in Lab 2 (web pentest), Lab 3 (SOC), Lab 5 (malware) -->
+    <opt1>
+      <enable>1</enable>
+      <if>hn2</if>
+      <!-- if value is replaced by Build-pfSense.sh after hardware detection -->
+      <descr>OPT1</descr>
+      <ipaddr>OPT1_IP_PLACEHOLDER</ipaddr>
+      <!-- OPT1_IP_PLACEHOLDER -> e.g. 10.1.53.1 -->
+      <subnet>24</subnet>
+      <ipaddrv6>none</ipaddrv6>
+      <spoofmac></spoofmac>
+    </opt1>
+
+  </interfaces>
+
+  <!-- ======================================================================
+       DHCP SERVER — Disabled on all interfaces
+       Students use static IPs assigned by Set-VMNetworkConfig.ps1.
+       Having the DHCP server block present but with no <enable> tag
+       means pfSense treats it as disabled.
+       ====================================================================== -->
+  <dhcpd>
+    <!-- LAN DHCP disabled -->
+    <lan>
+      <!-- No <enable>1</enable> — server is off -->
+      <range>
+        <from>10.0.0.100</from>
+        <to>10.0.0.199</to>
+      </range>
+      <!-- Range recorded for documentation but not active -->
+    </lan>
+
+    <!-- OPT1 DHCP disabled -->
+    <opt1>
+      <!-- No <enable>1</enable> -->
+    </opt1>
+  </dhcpd>
+
+  <!-- ======================================================================
+       DNS RESOLVER (Unbound)
+       Listens on LAN interface.  Forwards upstream queries to WAN DNS.
+       Students' VMs point to LAN IP (.1) as their DNS server.
+       ====================================================================== -->
+  <unbound>
+    <enable>1</enable>
+    <!-- Listen on LAN only — do not expose resolver on WAN -->
+    <active_interface>lan</active_interface>
+    <outgoing_interface>wan</outgoing_interface>
+    <!-- DNSSEC validation enabled -->
+    <dnssec>1</dnssec>
+    <!-- Forward all queries to system DNS servers (8.8.8.8, 8.8.4.4) -->
+    <forwarding>1</forwarding>
+    <!-- Do not rebind localhost queries -->
+    <rebind_protection>1</rebind_protection>
+    <regdhcp>0</regdhcp>
+    <regdhcpstatic>0</regdhcpstatic>
+    <regovpnclients>0</regovpnclients>
+    <!-- Port 53 (standard DNS) -->
+    <port></port>
+    <!-- Custom host overrides — none in base template -->
+    <hosts></hosts>
+    <!-- Custom domain overrides — none in base template -->
+    <domainoverrides></domainoverrides>
+  </unbound>
+
+  <!-- ======================================================================
+       NAT — Automatic Outbound NAT
+       Mode: automatic — pfSense generates NAT rules for all LAN subnets
+       going out through WAN.  No manual rules needed for the base template.
+       ====================================================================== -->
+  <nat>
+
+    <!-- Outbound NAT — masquerade LAN subnet through WAN IP -->
+    <outbound>
+      <!-- mode: automatic = pfSense auto-generates masquerade rules -->
+      <mode>automatic</mode>
+      <!-- Manual rules would go here if mode were 'manual' or 'hybrid' -->
+    </outbound>
+
+    <!-- Inbound NAT (port forwards) — none by default.
+         Instructors add these per-lab if students need inbound access.
+         Example: forwarding port 8080 on WAN to a student's web server.    -->
+    <!-- <rule>...</rule> would go here for port forwards -->
+
+  </nat>
+
+  <!-- ======================================================================
+       FIREWALL RULES
+       Rules are evaluated top-down per interface.
+       pfSense processes rules for the INGRESS interface of a packet.
+
+       Summary of intent:
+         LAN  -> any    : PASS all IPv4 (NAT handles WAN translation)
+         LAN  -> OPT1   : BLOCK (students write their own allow rules)
+         OPT1 -> LAN    : BLOCK (symmetric)
+         WAN  -> LAN    : BLOCK all unsolicited inbound
+         WAN  -> any    : PASS established/related return traffic (stateful)
+         ICMP -> any    : PASS everywhere (troubleshooting)
+         LAN  -> pfSense: PASS SSH (22) and HTTPS (443) for management
+       ====================================================================== -->
+  <filter>
+
+    <!-- ── Rule 1: LAN -> any, pass all IPv4
+         This is the standard default LAN rule that allows all outbound
+         traffic from the LAN segment.  NAT on WAN handles source masquerade. -->
+    <rule>
+      <type>pass</type>
+      <interface>lan</interface>
+      <ipprotocol>inet</ipprotocol>
+      <protocol>any</protocol>
+      <source>
+        <network>lan</network>
+      </source>
+      <destination>
+        <any></any>
+      </destination>
+      <descr><![CDATA[SCPS-LAB: LAN to WAN - Allow all IPv4 (NAT masquerade)]]></descr>
+      <log></log>
+      <statetype>keep state</statetype>
+    </rule>
+
+    <!-- ── Rule 2: Allow ICMP on LAN (troubleshooting)
+         Students need ping to diagnose network connectivity. -->
+    <rule>
+      <type>pass</type>
+      <interface>lan</interface>
+      <ipprotocol>inet</ipprotocol>
+      <protocol>icmp</protocol>
+      <icmptype>any</icmptype>
+      <source>
+        <any></any>
+      </source>
+      <destination>
+        <any></any>
+      </destination>
+      <descr><![CDATA[SCPS-LAB: Allow ICMP everywhere (troubleshooting)]]></descr>
+      <log></log>
+    </rule>
+
+    <!-- ── Rule 3: Allow ICMP on WAN (allow pings to pfSense WAN IP) -->
+    <rule>
+      <type>pass</type>
+      <interface>wan</interface>
+      <ipprotocol>inet</ipprotocol>
+      <protocol>icmp</protocol>
+      <icmptype>any</icmptype>
+      <source>
+        <any></any>
+      </source>
+      <destination>
+        <any></any>
+      </destination>
+      <descr><![CDATA[SCPS-LAB: Allow ICMP on WAN]]></descr>
+      <log></log>
+    </rule>
+
+    <!-- ── Rule 4: WAN - Allow established/related return traffic
+         pfSense's stateful engine handles this automatically, but the
+         explicit rule documents the intent. -->
+    <rule>
+      <type>pass</type>
+      <interface>wan</interface>
+      <ipprotocol>inet</ipprotocol>
+      <protocol>tcp</protocol>
+      <source>
+        <any></any>
+      </source>
+      <destination>
+        <any></any>
+      </destination>
+      <statetype>keep state</statetype>
+      <tcpflags_any>1</tcpflags_any>
+      <descr><![CDATA[SCPS-LAB: WAN - Allow established/related return traffic]]></descr>
+      <log></log>
+    </rule>
+
+    <!-- ── Rule 5: WAN -> LAN block all unsolicited inbound
+         Prevents attackers (or misconfigured hosts on the lab host network)
+         from reaching student VM segments directly. -->
+    <rule>
+      <type>block</type>
+      <interface>wan</interface>
+      <ipprotocol>inet</ipprotocol>
+      <protocol>any</protocol>
+      <source>
+        <any></any>
+      </source>
+      <destination>
+        <network>lan</network>
+      </destination>
+      <descr><![CDATA[SCPS-LAB: WAN to LAN - Block all (default deny)]]></descr>
+      <log>1</log>
+    </rule>
+
+    <!-- ── Rule 6: LAN -> OPT1 block by default
+         Students learn to write firewall rules by starting from a blocked
+         state.  Instructors or students add PASS rules above this block
+         during lab exercises. -->
+    <rule>
+      <type>block</type>
+      <interface>lan</interface>
+      <ipprotocol>inet</ipprotocol>
+      <protocol>any</protocol>
+      <source>
+        <network>lan</network>
+      </source>
+      <destination>
+        <network>opt1</network>
+      </destination>
+      <descr><![CDATA[SCPS-LAB: LAN to OPT1 - Block by default (students add allow rules)]]></descr>
+      <log>1</log>
+    </rule>
+
+    <!-- ── Rule 7: OPT1 -> LAN block by default (symmetric with rule 6) -->
+    <rule>
+      <type>block</type>
+      <interface>opt1</interface>
+      <ipprotocol>inet</ipprotocol>
+      <protocol>any</protocol>
+      <source>
+        <network>opt1</network>
+      </source>
+      <destination>
+        <network>lan</network>
+      </destination>
+      <descr><![CDATA[SCPS-LAB: OPT1 to LAN - Block by default]]></descr>
+      <log>1</log>
+    </rule>
+
+    <!-- ── Rule 8: Allow SSH to pfSense from LAN (management) -->
+    <rule>
+      <type>pass</type>
+      <interface>lan</interface>
+      <ipprotocol>inet</ipprotocol>
+      <protocol>tcp</protocol>
+      <source>
+        <network>lan</network>
+      </source>
+      <destination>
+        <address>LAN_IP_PLACEHOLDER</address>
+        <subnet>32</subnet>
+      </destination>
+      <destination_port>22</destination_port>
+      <descr><![CDATA[SCPS-LAB: Allow SSH to pfSense management from LAN]]></descr>
+      <log></log>
+      <statetype>keep state</statetype>
+    </rule>
+
+    <!-- ── Rule 9: Allow HTTPS to pfSense web GUI from LAN (management) -->
+    <rule>
+      <type>pass</type>
+      <interface>lan</interface>
+      <ipprotocol>inet</ipprotocol>
+      <protocol>tcp</protocol>
+      <source>
+        <network>lan</network>
+      </source>
+      <destination>
+        <address>LAN_IP_PLACEHOLDER</address>
+        <subnet>32</subnet>
+      </destination>
+      <destination_port>443</destination_port>
+      <descr><![CDATA[SCPS-LAB: Allow HTTPS to pfSense web GUI from LAN]]></descr>
+      <log></log>
+      <statetype>keep state</statetype>
+    </rule>
+
+    <!-- ── STUDENT EXERCISE PLACEHOLDER RULES
+         Instructors and students add rules here during lab exercises.
+         The numbered comments provide guidance on where to insert rules. -->
+
+    <!-- STUDENT RULE SLOT A: Allow specific traffic LAN -> OPT1 (exercise) -->
+    <!-- Example for Lab 1 Exercise 3: allow HTTP from attack-net to DMZ web server
+    <rule>
+      <type>pass</type>
+      <interface>lan</interface>
+      <ipprotocol>inet</ipprotocol>
+      <protocol>tcp</protocol>
+      <source><network>lan</network></source>
+      <destination><address>OPT1_IP_PLACEHOLDER</address><subnet>24</subnet></destination>
+      <destination_port>80</destination_port>
+      <descr>Student Exercise: Allow HTTP from LAN to DMZ</descr>
+    </rule>
+    -->
+
+  </filter>
+
+  <!-- ======================================================================
+       ALIASES — Reusable address/port groups
+       These aliases are referenced in firewall rules and can be expanded
+       per lab scenario.
+       ====================================================================== -->
+  <aliases>
+
+    <!-- Lab segment aliases — IPs substituted at deploy time -->
+    <alias>
+      <name>lab_lan_net</name>
+      <type>network</type>
+      <address>LAN_IP_PLACEHOLDER/24</address>
+      <descr>Student LAN segment (corporate-net / internal-net)</descr>
+    </alias>
+
+    <alias>
+      <name>lab_opt1_net</name>
+      <type>network</type>
+      <address>OPT1_IP_PLACEHOLDER/24</address>
+      <descr>Student OPT1 segment (DMZ / pentest-net)</descr>
+    </alias>
+
+    <!-- Common lab ports -->
+    <alias>
+      <name>web_ports</name>
+      <type>port</type>
+      <address>80 443 8080 8443</address>
+      <descr>Common web service ports</descr>
+    </alias>
+
+    <alias>
+      <name>remote_access_ports</name>
+      <type>port</type>
+      <address>22 3389</address>
+      <descr>SSH and RDP</descr>
+    </alias>
+
+  </aliases>
+
+  <!-- ======================================================================
+       GATEWAYS — WAN default gateway (DHCP-assigned)
+       pfSense populates this automatically when WAN is set to DHCP.
+       ====================================================================== -->
+  <gateways>
+    <gateway_item>
+      <interface>wan</interface>
+      <gateway>dynamic</gateway>
+      <!-- 'dynamic' means pfSense will populate from DHCP lease -->
+      <name>WAN_DHCP</name>
+      <weight>1</weight>
+      <ipprotocol>inet</ipprotocol>
+      <interval>500</interval>
+      <descr>WAN DHCP gateway (Hyper-V external switch)</descr>
+      <defaultgw>1</defaultgw>
+    </gateway_item>
+  </gateways>
+
+  <!-- ======================================================================
+       STATIC ROUTES — None in base template
+       Instructors may add these for multi-hop lab scenarios.
+       ====================================================================== -->
+  <staticroutes></staticroutes>
+
+  <!-- ======================================================================
+       CERTIFICATES — Auto-generated self-signed for web GUI
+       pfSense generates a self-signed cert on first boot if this is empty.
+       ====================================================================== -->
+  <cert>
+    <!-- pfSense auto-generates GUI certificate on first boot -->
+  </cert>
+
+  <!-- ======================================================================
+       CRON — pfSense built-in scheduled tasks
+       ====================================================================== -->
+  <cron>
+    <item>
+      <minute>*/5</minute>
+      <hour>*</hour>
+      <mday>*</mday>
+      <month>*</month>
+      <wday>*</wday>
+      <who>root</who>
+      <command>/usr/libexec/ntp-wait -n 1 &amp;&amp; /usr/sbin/ntpd -gq 2&gt;/dev/null; /bin/rm -f /var/run/ntpd.pid</command>
+    </item>
+    <item>
+      <minute>1</minute>
+      <hour>3</hour>
+      <mday>1</mday>
+      <month>*</month>
+      <wday>*</wday>
+      <who>root</who>
+      <command>/usr/local/bin/php -f /usr/local/www/update_bogons.php</command>
+    </item>
+  </cron>
+
+  <!-- ======================================================================
+       SYSCTL TUNING — Hyper-V performance and security tweaks
+       ====================================================================== -->
+  <sysctl>
+
+    <!-- Security: prevent information disclosure via ICMP timestamp replies -->
+    <item>
+      <tunable>net.inet.icmp.drop_redirect</tunable>
+      <value>1</value>
+      <descr>Drop ICMP redirects</descr>
+    </item>
+
+    <!-- Security: SYN cookies to resist SYN flood (students learn this) -->
+    <item>
+      <tunable>net.inet.tcp.syncookies</tunable>
+      <value>1</value>
+      <descr>Enable SYN cookies</descr>
+    </item>
+
+    <!-- Hyper-V: disable TCP segment offloading for compatibility -->
+    <item>
+      <tunable>net.inet.tcp.tso</tunable>
+      <value>0</value>
+      <descr>Disable TSO (Hyper-V compatibility)</descr>
+    </item>
+
+    <!-- Increase connection tracking table (15 students * ~1000 states each) -->
+    <item>
+      <tunable>net.pf.states_hashsize</tunable>
+      <value>65536</value>
+      <descr>PF state table hash size</descr>
+    </item>
+
+    <!-- Logging: enable TCP timestamps (useful for student analysis) -->
+    <item>
+      <tunable>net.inet.tcp.rfc1323</tunable>
+      <value>1</value>
+      <descr>Enable TCP timestamps and window scaling (RFC 1323)</descr>
+    </item>
+
+  </sysctl>
+
+  <!-- ======================================================================
+       PACKAGES — pfSense packages pre-installed in base image
+       ====================================================================== -->
+  <installedpackages>
+
+    <!-- pfSense package: OpenVPN Client Export
+         Lets instructors export .ovpn configs for Lab 1 VPN exercises.
+         Build-pfSense.sh installs this via pkg; the config section is here. -->
+    <openvpnexport>
+      <config>
+        <defaultpkg>zip</defaultpkg>
+        <defaultpkgos>other</defaultpkgos>
+        <randomlocalport>0</randomlocalport>
+        <blockoutsidevpn>0</blockoutsidevpn>
+      </config>
+    </openvpnexport>
+
+  </installedpackages>
+
+  <!-- ======================================================================
+       VERSION — pfSense internal version tracking
+       ====================================================================== -->
+  <version>21.7</version>
+  <!-- version 21.7 is the config.xml schema version used by pfSense 2.7 -->
+  <!-- Do not confuse with the pfSense OS version (2.7.x) -->
+
+  <!-- ======================================================================
+       REVISION — Config revision metadata
+       ====================================================================== -->
+  <revision>
+    <time><!-- set automatically on write_config() --></time>
+    <description>SCPS CyberLab base template — staged by Build-pfSense.sh</description>
+    <username>admin@console</username>
+  </revision>
+
+</pfsense>
