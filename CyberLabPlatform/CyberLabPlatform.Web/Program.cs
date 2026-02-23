@@ -5,6 +5,7 @@ using CyberLabPlatform.Web.Hubs;
 using CyberLabPlatform.Web.Services;
 using AspNetCoreRateLimit;
 using Hangfire;
+using Hangfire.AspNetCore;
 using Hangfire.PostgreSql;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -188,12 +189,13 @@ public class HangfireDashboardAuthorizationFilter : Hangfire.Dashboard.IDashboar
 {
     public bool Authorize(Hangfire.Dashboard.DashboardContext context)
     {
-        // Avoid hard dependency on Hangfire.AspNetCore-specific extension methods/types,
-        // which can vary across Hangfire package versions.
-        var httpContextProperty = context.GetType().GetProperty("HttpContext");
-        var httpContext = httpContextProperty?.GetValue(context) as Microsoft.AspNetCore.Http.HttpContext;
+        if (context is not Hangfire.AspNetCore.AspNetCoreDashboardContext aspNetCoreContext)
+        {
+            return false;
+        }
 
-        return httpContext?.User.Identity?.IsAuthenticated == true
+        var httpContext = aspNetCoreContext.HttpContext;
+        return httpContext.User.Identity?.IsAuthenticated == true
             && httpContext.User.IsInRole("SystemAdministrator");
     }
 }
