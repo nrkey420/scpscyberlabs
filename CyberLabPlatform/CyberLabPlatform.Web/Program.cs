@@ -178,6 +178,9 @@ finally
     await Log.CloseAndFlushAsync();
 }
 
+// Required for WebApplicationFactory<Program> in integration tests
+public partial class Program { }
+
 /// <summary>
 /// Hangfire dashboard authorization filter - restricts access to SystemAdministrator role.
 /// </summary>
