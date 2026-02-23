@@ -193,3 +193,5 @@ public class HangfireDashboardAuthorizationFilter : Hangfire.Dashboard.IDashboar
             && httpContext.User.IsInRole("SystemAdministrator");
     }
 }
+
+public partial class Program;
