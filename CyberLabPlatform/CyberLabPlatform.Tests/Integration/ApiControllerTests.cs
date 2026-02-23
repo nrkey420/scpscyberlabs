@@ -5,6 +5,7 @@ using System.Security.Claims;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using CyberLabPlatform.Core.Enums;
+using CyberLabPlatform.Core.Interfaces;
 using CyberLabPlatform.Core.Models;
 using CyberLabPlatform.Core.Models.DTOs;
 using CyberLabPlatform.Web.Data;
@@ -261,8 +262,7 @@ public class ApiControllerTests : IClassFixture<WebApplicationFactory<Program>>,
         var response = await _client.SendAsync(request);
 
         // Assert
-        response.StatusCode.Should().BeOneOf(HttpStatusCode.Created, HttpStatusCode.OK,
-            "an instructor should be authorized to deploy labs");
+        response.StatusCode.Should().BeOneOf(HttpStatusCode.Created, HttpStatusCode.OK);
     }
 
     [Fact]
