@@ -189,7 +189,7 @@ public class HangfireDashboardAuthorizationFilter : Hangfire.Dashboard.IDashboar
 {
     public bool Authorize(Hangfire.Dashboard.DashboardContext context)
     {
-        var httpContext = context.GetHttpContext();
+        var httpContext = (context as AspNetCoreDashboardContext)?.HttpContext;
         if (httpContext is null)
         {
             return false;
