@@ -185,7 +185,7 @@ public class HangfireDashboardAuthorizationFilter : Hangfire.Dashboard.IDashboar
 {
     public bool Authorize(Hangfire.Dashboard.DashboardContext context)
     {
-        var httpContext = context.GetHttpContext();
+        var httpContext = ((Hangfire.AspNetCore.AspNetCoreDashboardContext)context).HttpContext;
         return httpContext.User.Identity?.IsAuthenticated == true
             && httpContext.User.IsInRole("SystemAdministrator");
     }
