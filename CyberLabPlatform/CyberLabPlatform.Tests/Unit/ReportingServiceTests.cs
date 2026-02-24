@@ -241,7 +241,7 @@ public class ReportingServiceTests : IDisposable
 
         // Verify the export contains activity data
         var content = System.Text.Encoding.UTF8.GetString(result);
-        content.Should().Contain("SessionJoined").Or.Subject.Should().Contain("FlagSubmitted",
+        content.Should().Match(c => c.Contains("SessionJoined") || c.Contains("FlagSubmitted"),
             "the export should include activity events from the seeded data");
     }
 
