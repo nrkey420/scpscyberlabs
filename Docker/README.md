@@ -94,3 +94,5 @@ If that check fails, review the preview text in script output and container logs
 ```bash
 docker compose logs --tail=200 guacamole postgres
 ```
+
+The sanity check looks for both `CREATE TABLE` and `guacamole_user` anywhere in generated SQL output (not necessarily on the same line).

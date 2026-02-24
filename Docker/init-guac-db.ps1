@@ -30,8 +30,9 @@ if ([string]::IsNullOrWhiteSpace($initSql)) {
     throw "Unable to generate Guacamole init SQL. Check 'docker compose logs $GuacService'."
 }
 
-if ($initSql -notmatch "CREATE TABLE[\s\S]*guacamole_user") {
-    $preview = ($initSql | Out-String).Trim()
+$initSqlText = ($initSql | Out-String)
+if ($initSqlText -notmatch "CREATE TABLE" -or $initSqlText -notmatch "guacamole_user") {
+    $preview = $initSqlText.Trim()
     if ($preview.Length -gt 400) { $preview = $preview.Substring(0, 400) + "..." }
     throw "Generated output does not look like Guacamole schema SQL. Preview: $preview"
 }
@@ -39,7 +40,7 @@ if ($initSql -notmatch "CREATE TABLE[\s\S]*guacamole_user") {
 Write-Host "Applying Guacamole schema to PostgreSQL..."
 $tmp = New-TemporaryFile
 try {
-    Set-Content -Path $tmp -Value $initSql -NoNewline -Encoding utf8
+    Set-Content -Path $tmp -Value $initSqlText -NoNewline -Encoding utf8
     Get-Content -Raw $tmp | docker compose -f $ComposeFile exec -T $DbService psql -v ON_ERROR_STOP=1 -U $DbUser -d $DbName
     if ($LASTEXITCODE -ne 0) {
         throw "Failed to apply Guacamole schema to PostgreSQL. Check 'docker compose logs $DbService'."

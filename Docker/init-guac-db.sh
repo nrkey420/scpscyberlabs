@@ -30,7 +30,7 @@ if [[ -z "${init_sql// }" ]]; then
   exit 1
 fi
 
-if ! grep -qi "CREATE TABLE.*guacamole_user" <<<"$init_sql"; then
+if ! grep -qi "CREATE TABLE" <<<"$init_sql" || ! grep -qi "guacamole_user" <<<"$init_sql"; then
   echo "Generated output does not look like Guacamole schema SQL." >&2
   echo "Preview:" >&2
   printf '%s\n' "${init_sql:0:400}" >&2
