@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   guacd:
     image: guacamole/guacd:1.5.4
@@ -16,8 +14,10 @@ services:
     container_name: cyberlab-guacamole
     restart: unless-stopped
     depends_on:
-      - guacd
-      - postgres
+      guacd:
+        condition: service_started
+      postgres:
+        condition: service_healthy
     environment:
       GUACD_HOSTNAME: guacd
       GUACD_PORT: 4822
@@ -25,7 +25,7 @@ services:
       POSTGRESQL_PORT: 5432
       POSTGRESQL_DATABASE: guacamole_db
       POSTGRESQL_USER: guacamole_user
-      POSTGRESQL_PASSWORD: ${GUAC_DB_PASSWORD}
+      POSTGRESQL_PASSWORD: ${GUAC_DB_PASSWORD:?GUAC_DB_PASSWORD is required in .env}
     ports:
       - "8080:8080"
     networks:
@@ -38,12 +38,17 @@ services:
     environment:
       POSTGRES_DB: guacamole_db
       POSTGRES_USER: guacamole_user
-      POSTGRES_PASSWORD: ${GUAC_DB_PASSWORD}
+      POSTGRES_PASSWORD: ${GUAC_DB_PASSWORD:?GUAC_DB_PASSWORD is required in .env}
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - postgres-data:/var/lib/postgresql/data
     networks:
       - guacamole-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U guacamole_user -d guacamole_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   guacd-drive:
