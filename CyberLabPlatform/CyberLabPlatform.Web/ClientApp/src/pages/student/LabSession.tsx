@@ -7,7 +7,6 @@ import { VMConsole } from "@/components/VMConsole";
 import { ObjectiveChecklist } from "@/components/ObjectiveChecklist";
 import { CountdownTimer } from "@/components/CountdownTimer";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 import { VMStatus } from "@/types/models";
 import { Monitor, Target, ChevronLeft, ChevronRight } from "lucide-react";
@@ -42,6 +41,16 @@ export default function LabSession() {
 
   const myVMs = session?.vmInstances.filter((vm) => vm.status === VMStatus.Running) ?? [];
   const activeVM = selectedVM ?? myVMs[0]?.id ?? null;
+
+  const objectives = assignment?.progress.map((item, index) => ({
+    id: item.objectiveId,
+    templateId: session?.templateId ?? "",
+    title: item.objectiveTitle,
+    description: "",
+    points: item.pointsEarned ?? 0,
+    orderIndex: index + 1,
+    isBonusObjective: false,
+  })) ?? [];
 
   const handleFlagSubmit = async (objectiveId: string, flag: string) => {
     try {
@@ -106,7 +115,7 @@ export default function LabSession() {
                   <span className="text-sm font-mono text-primary">{assignment.totalPoints} pts</span>
                 </div>
                 <ObjectiveChecklist
-                  objectives={session.vmInstances.length > 0 ? (session as unknown as { objectives?: typeof session.assignments[0]["progress"] })?.objectives ?? [] : []}
+                  objectives={objectives}
                   progress={assignment.progress}
                   onFlagSubmit={handleFlagSubmit}
                 />

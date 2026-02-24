@@ -2,8 +2,10 @@ using CyberLabPlatform.Core.Enums;
 using CyberLabPlatform.Core.Interfaces;
 using CyberLabPlatform.Core.Models;
 using CyberLabPlatform.Web.Data;
+using CyberLabPlatform.Web.Hubs;
 using CyberLabPlatform.Web.Services;
 using FluentAssertions;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -17,9 +19,7 @@ public class LabOrchestrationServiceTests : IDisposable
     private readonly CyberLabDbContext _dbContext;
     private readonly Mock<IPowerShellExecutor> _powerShellMock;
     private readonly Mock<IResourceManagerService> _resourceManagerMock;
-    private readonly Mock<IGuacamoleTokenService> _guacamoleMock;
-    private readonly Mock<IEmailService> _emailMock;
-    private readonly Mock<IActivityLoggingService> _activityLoggingMock;
+    private readonly Mock<IHubContext<LabActivityHub>> _hubContextMock;
     private readonly Mock<ILogger<LabOrchestrationService>> _loggerMock;
     private readonly Mock<IConfiguration> _configMock;
     private readonly LabOrchestrationService _sut;
@@ -33,9 +33,7 @@ public class LabOrchestrationServiceTests : IDisposable
         _dbContext = new CyberLabDbContext(options);
         _powerShellMock = new Mock<IPowerShellExecutor>();
         _resourceManagerMock = new Mock<IResourceManagerService>();
-        _guacamoleMock = new Mock<IGuacamoleTokenService>();
-        _emailMock = new Mock<IEmailService>();
-        _activityLoggingMock = new Mock<IActivityLoggingService>();
+        _hubContextMock = new Mock<IHubContext<LabActivityHub>>();
         _loggerMock = new Mock<ILogger<LabOrchestrationService>>();
         _configMock = new Mock<IConfiguration>();
 
@@ -46,9 +44,7 @@ public class LabOrchestrationServiceTests : IDisposable
             _dbContext,
             _powerShellMock.Object,
             _resourceManagerMock.Object,
-            _guacamoleMock.Object,
-            _emailMock.Object,
-            _activityLoggingMock.Object,
+            _hubContextMock.Object,
             _configMock.Object,
             _loggerMock.Object);
     }
@@ -111,7 +107,7 @@ public class LabOrchestrationServiceTests : IDisposable
             CreatedAt = DateTime.UtcNow,
             LastActivity = DateTime.UtcNow
         };
-        _dbContext.VMInstances.Add(vm);
+        _dbContext.VmInstances.Add(vm);
         _dbContext.SaveChanges();
         return vm;
     }
@@ -158,7 +154,7 @@ public class LabOrchestrationServiceTests : IDisposable
         session.TemplateId.Should().Be(template.Id);
         session.ClassName.Should().Be("Ethical Hacking 201");
         session.InstructorId.Should().Be("instructor-1");
-        session.Status.Should().Be(LabStatus.Provisioning).Or.Be(LabStatus.Active);
+        session.Status.Should().BeOneOf(LabStatus.Provisioning, LabStatus.Active);
 
         var savedSession = await _dbContext.LabSessions.FindAsync(session.Id);
         savedSession.Should().NotBeNull();
@@ -240,7 +236,7 @@ public class LabOrchestrationServiceTests : IDisposable
             Times.AtLeastOnce,
             "PauseVM should invoke a PowerShell script to pause/suspend the VM");
 
-        var updatedVm = await _dbContext.VMInstances.FindAsync(vm.Id);
+        var updatedVm = await _dbContext.VmInstances.FindAsync(vm.Id);
         updatedVm!.Status.Should().Be(VMStatus.Paused);
     }
 
@@ -252,25 +248,17 @@ public class LabOrchestrationServiceTests : IDisposable
         var session = SeedActiveSession(template.Id);
         var vm = SeedVM(session.Id, VMStatus.Running, studentId: "student-1");
 
-        var expectedUrl = "https://guac.cyberlab.local/#/client/test-token";
-        _guacamoleMock
-            .Setup(g => g.GenerateConsoleUrl(
-                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
-                It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<TimeSpan>()))
-            .Returns(expectedUrl);
+        _configMock.Setup(c => c["Guacamole:BaseUrl"]).Returns("https://guac.cyberlab.local");
+        _configMock.Setup(c => c["Guacamole:SecretKey"]).Returns("test-secret");
+        _configMock.Setup(c => c["Guacamole:TokenExpirationMinutes"]).Returns("60");
 
         // Act
         var consoleUrl = await _sut.GetVMConsoleUrlAsync(vm.Id);
 
         // Assert
         consoleUrl.Should().NotBeNullOrEmpty();
-        consoleUrl.Should().Contain("guac").Or.Subject.Should().Contain("console");
-        _guacamoleMock.Verify(
-            g => g.GenerateConsoleUrl(
-                It.IsAny<string>(), It.Is<string>(ip => ip == "10.0.1.10"),
-                It.IsAny<string>(), It.IsAny<int>(),
-                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<TimeSpan>()),
-            Times.Once);
+        consoleUrl.Should().Contain("guac");
+        consoleUrl.Should().Contain("token=");
     }
 
     [Fact]

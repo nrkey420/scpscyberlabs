@@ -2,8 +2,10 @@ using CyberLabPlatform.Core.Enums;
 using CyberLabPlatform.Core.Interfaces;
 using CyberLabPlatform.Core.Models;
 using CyberLabPlatform.Web.Data;
+using CyberLabPlatform.Web.Hubs;
 using CyberLabPlatform.Web.Services;
 using FluentAssertions;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -15,7 +17,7 @@ public class GamificationServiceTests : IDisposable
 {
     private readonly CyberLabDbContext _dbContext;
     private readonly GamificationService _sut;
-    private readonly Mock<IActivityLoggingService> _activityLoggingMock;
+    private readonly Mock<IHubContext<LabActivityHub>> _hubContextMock;
     private readonly Mock<ILogger<GamificationService>> _loggerMock;
 
     public GamificationServiceTests()
@@ -25,10 +27,10 @@ public class GamificationServiceTests : IDisposable
             .Options;
 
         _dbContext = new CyberLabDbContext(options);
-        _activityLoggingMock = new Mock<IActivityLoggingService>();
+        _hubContextMock = new Mock<IHubContext<LabActivityHub>>();
         _loggerMock = new Mock<ILogger<GamificationService>>();
 
-        _sut = new GamificationService(_dbContext, _activityLoggingMock.Object, _loggerMock.Object);
+        _sut = new GamificationService(_dbContext, _hubContextMock.Object, _loggerMock.Object);
     }
 
     private (LabTemplate template, LabSession session, LabObjective objective) SeedBasicLabData(
