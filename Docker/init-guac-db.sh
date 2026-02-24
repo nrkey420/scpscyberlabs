@@ -12,9 +12,25 @@ if ! command -v docker >/dev/null 2>&1; then
   exit 1
 fi
 
-echo "Initializing Guacamole schema in PostgreSQL..."
+echo "Generating Guacamole PostgreSQL init SQL..."
 
-docker compose -f "$COMPOSE_FILE" exec -T "$GUAC_SERVICE" /opt/guacamole/bin/initdb.sh --postgres \
-  | docker compose -f "$COMPOSE_FILE" exec -T "$DB_SERVICE" psql -U "$DB_USER" -d "$DB_NAME"
+# Prefer exec when service is running; fallback to one-off run when restarting/unhealthy.
+set +e
+init_sql="$(docker compose -f "$COMPOSE_FILE" exec -T "$GUAC_SERVICE" /opt/guacamole/bin/initdb.sh --postgres 2>/dev/null)"
+set -e
+
+if [[ -z "${init_sql// }" ]]; then
+  echo "No SQL from 'exec'; falling back to one-off container run..."
+  init_sql="$(docker compose -f "$COMPOSE_FILE" run --rm --no-deps "$GUAC_SERVICE" /opt/guacamole/bin/initdb.sh --postgres)"
+fi
+
+if [[ -z "${init_sql// }" ]]; then
+  echo "Unable to generate Guacamole init SQL. Check: docker compose logs $GUAC_SERVICE" >&2
+  exit 1
+fi
+
+echo "Applying Guacamole schema to PostgreSQL..."
+printf '%s
+' "$init_sql" | docker compose -f "$COMPOSE_FILE" exec -T "$DB_SERVICE" psql -U "$DB_USER" -d "$DB_NAME"
 
 echo "Guacamole schema initialization complete."

@@ -69,3 +69,7 @@ docker compose logs --tail=200 guacamole postgres
 ```
 
 A common cause is missing/empty `GUAC_DB_PASSWORD`; the compose file now fails fast if it is not set.
+
+If the PowerShell script reports no SQL output, the `guacamole` service may be restarting too quickly for `exec`.
+The scripts now fall back to `docker compose run --rm --no-deps guacamole /opt/guacamole/bin/initdb.sh --postgres` automatically.
+
