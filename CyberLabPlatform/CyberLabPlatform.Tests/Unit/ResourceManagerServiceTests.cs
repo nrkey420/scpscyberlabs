@@ -1,7 +1,6 @@
 using CyberLabPlatform.Core.Enums;
 using CyberLabPlatform.Core.Interfaces;
 using CyberLabPlatform.Core.Models;
-using CyberLabPlatform.Core.Models.DTOs;
 using CyberLabPlatform.Web.Data;
 using CyberLabPlatform.Web.Services;
 using FluentAssertions;
@@ -82,7 +81,7 @@ public class ResourceManagerServiceTests : IDisposable
 
         for (int i = 0; i < count; i++)
         {
-            _dbContext.VMInstances.Add(new VMInstance
+            _dbContext.VmInstances.Add(new VMInstance
             {
                 Id = Guid.NewGuid(),
                 SessionId = session.Id,

@@ -70,3 +70,46 @@ dotnet run --project CyberLabPlatform.Web
 - [Instructor Manual](Docs/InstructorManual.md)
 - [Student Quick Start](Docs/StudentQuickStart.md)
 - Lab Scenario Guides in `Docs/LabGuide-*.md`
+
+
+## IIS Startup Troubleshooting (PostgreSQL auth `28P01`)
+
+If IIS logs show:
+
+- `Npgsql.PostgresException ... 28P01: password authentication failed for user "cyberlab_app"`
+- app exits at startup during `dbContext.Database.MigrateAsync()`
+
+then the published app is using a PostgreSQL username/password that does not match the server.
+
+### Verify/update app connection strings
+
+The web app reads `ConnectionStrings:DefaultConnection` and `ConnectionStrings:HangfireConnection` (from `appsettings*.json` and environment overrides).
+
+For IIS, prefer overriding via environment variables on the site/app pool:
+
+- `ConnectionStrings__DefaultConnection`
+- `ConnectionStrings__HangfireConnection`
+
+### Verify database user credentials in PostgreSQL
+
+Run on PostgreSQL:
+
+```sql
+ALTER USER cyberlab_app WITH PASSWORD 'YOUR_REAL_PASSWORD';
+```
+
+or create if missing:
+
+```sql
+CREATE ROLE cyberlab_app LOGIN PASSWORD 'YOUR_REAL_PASSWORD';
+GRANT ALL PRIVILEGES ON DATABASE cyberlab TO cyberlab_app;
+```
+
+### Quick connection test from host
+
+```bash
+psql "Host=localhost;Port=5432;Database=cyberlab;Username=cyberlab_app;Password=YOUR_REAL_PASSWORD"
+```
+
+If this fails, IIS startup will fail for the same reason.
+
