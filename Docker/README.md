@@ -86,3 +86,11 @@ docker compose exec -T postgres psql -U guacamole_user -d guacamole_db -c "SELEC
 ```
 
 Expected output is `guacamole_user`. If it is empty/null, the schema did not apply to the target DB.
+
+
+If verification fails immediately after apply, the script now checks that generated output contains expected SQL (`CREATE TABLE ... guacamole_user`).
+If that check fails, review the preview text in script output and container logs:
+
+```bash
+docker compose logs --tail=200 guacamole postgres
+```

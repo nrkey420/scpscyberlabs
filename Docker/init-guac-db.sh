@@ -30,6 +30,13 @@ if [[ -z "${init_sql// }" ]]; then
   exit 1
 fi
 
+if ! grep -qi "CREATE TABLE.*guacamole_user" <<<"$init_sql"; then
+  echo "Generated output does not look like Guacamole schema SQL." >&2
+  echo "Preview:" >&2
+  printf '%s\n' "${init_sql:0:400}" >&2
+  exit 1
+fi
+
 echo "Applying Guacamole schema to PostgreSQL..."
 printf '%s
 ' "$init_sql" | docker compose -f "$COMPOSE_FILE" exec -T "$DB_SERVICE" psql -v ON_ERROR_STOP=1 -U "$DB_USER" -d "$DB_NAME"
