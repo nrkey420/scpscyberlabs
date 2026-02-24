@@ -5,6 +5,7 @@ using System.Security.Claims;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using CyberLabPlatform.Core.Enums;
+using CyberLabPlatform.Core.Interfaces;
 using CyberLabPlatform.Core.Models;
 using CyberLabPlatform.Core.Models.DTOs;
 using CyberLabPlatform.Web.Data;
