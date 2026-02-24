@@ -31,6 +31,12 @@ Run once after the containers are up:
 ./init-guac-db.sh
 ```
 
+PowerShell variant (Windows):
+
+```powershell
+./init-guac-db.ps1
+```
+
 This runs Guacamole's built-in `initdb.sh --postgres` and pipes the SQL into the `postgres` service.
 
 ## 4) Restart Guacamole
