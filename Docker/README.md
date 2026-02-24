@@ -37,7 +37,7 @@ PowerShell variant (Windows):
 ./init-guac-db.ps1
 ```
 
-This runs Guacamole's built-in `initdb.sh --postgres` and pipes the SQL into the `postgres` service.
+This runs Guacamole's built-in `initdb.sh --postgresql` and pipes the SQL into the `postgres` service.
 
 ## 4) Restart Guacamole
 
@@ -71,5 +71,9 @@ docker compose logs --tail=200 guacamole postgres
 A common cause is missing/empty `GUAC_DB_PASSWORD`; the compose file now fails fast if it is not set.
 
 If the PowerShell script reports no SQL output, the `guacamole` service may be restarting too quickly for `exec`.
-The scripts now fall back to `docker compose run --rm --no-deps guacamole /opt/guacamole/bin/initdb.sh --postgres` automatically.
+The scripts now fall back to `docker compose run --rm --no-deps guacamole /opt/guacamole/bin/initdb.sh --postgresql` automatically.
 
+
+
+If you previously saw `Bad database type: --postgres`, that indicates an older script version.
+Use the current scripts, which call `initdb.sh --postgresql`.
