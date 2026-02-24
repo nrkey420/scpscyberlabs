@@ -34,4 +34,13 @@ echo "Applying Guacamole schema to PostgreSQL..."
 printf '%s
 ' "$init_sql" | docker compose -f "$COMPOSE_FILE" exec -T "$DB_SERVICE" psql -v ON_ERROR_STOP=1 -U "$DB_USER" -d "$DB_NAME"
 
-echo "Guacamole schema initialization complete."
+echo "Verifying Guacamole schema..."
+check_table="$(docker compose -f "$COMPOSE_FILE" exec -T "$DB_SERVICE" psql -tA -U "$DB_USER" -d "$DB_NAME" -c "SELECT to_regclass('public.guacamole_user');" | tr -d '\r')"
+
+if [[ "$check_table" != "guacamole_user" ]]; then
+  echo "Schema verification failed: table 'guacamole_user' was not found in database '$DB_NAME'." >&2
+  echo "Check DB service/name/user values and then inspect logs: docker compose logs $DB_SERVICE $GUAC_SERVICE" >&2
+  exit 1
+fi
+
+echo "Guacamole schema initialization complete and verified."

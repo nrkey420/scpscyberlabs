@@ -77,3 +77,12 @@ The scripts now fall back to `docker compose run --rm --no-deps guacamole /opt/g
 
 If you previously saw `Bad database type: --postgres`, that indicates an older script version.
 Use the current scripts, which call `initdb.sh --postgresql`.
+
+
+If Guacamole still reports `relation "guacamole_user" does not exist` after running init, run:
+
+```bash
+docker compose exec -T postgres psql -U guacamole_user -d guacamole_db -c "SELECT to_regclass('public.guacamole_user');"
+```
+
+Expected output is `guacamole_user`. If it is empty/null, the schema did not apply to the target DB.

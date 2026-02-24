@@ -43,4 +43,14 @@ finally {
     Remove-Item -Force $tmp -ErrorAction SilentlyContinue
 }
 
-Write-Host "Guacamole schema initialization complete."
+Write-Host "Verifying Guacamole schema..."
+$schemaTable = docker compose -f $ComposeFile exec -T $DbService psql -tA -U $DbUser -d $DbName -c "SELECT to_regclass('public.guacamole_user');"
+if ($LASTEXITCODE -ne 0) {
+    throw "Schema verification query failed. Check 'docker compose logs $DbService'."
+}
+$schemaTable = ($schemaTable | Out-String).Trim()
+if ($schemaTable -ne "guacamole_user") {
+    throw "Schema verification failed: table 'guacamole_user' was not found in database '$DbName'."
+}
+
+Write-Host "Guacamole schema initialization complete and verified."
