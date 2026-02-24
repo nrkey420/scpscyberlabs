@@ -25,7 +25,7 @@ services:
       POSTGRESQL_PORT: 5432
       POSTGRESQL_DATABASE: guacamole_db
       POSTGRESQL_USER: guacamole_user
-      POSTGRESQL_PASSWORD: ${GUAC_DB_PASSWORD}
+      POSTGRESQL_PASSWORD: ${GUAC_DB_PASSWORD:?GUAC_DB_PASSWORD is required in .env}
     ports:
       - "8080:8080"
     networks:
@@ -38,7 +38,7 @@ services:
     environment:
       POSTGRES_DB: guacamole_db
       POSTGRES_USER: guacamole_user
-      POSTGRES_PASSWORD: ${GUAC_DB_PASSWORD}
+      POSTGRES_PASSWORD: ${GUAC_DB_PASSWORD:?GUAC_DB_PASSWORD is required in .env}
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - postgres-data:/var/lib/postgresql/data

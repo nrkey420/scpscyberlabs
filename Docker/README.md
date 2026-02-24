@@ -50,3 +50,22 @@ docker compose restart guacamole
 ```bash
 docker compose logs -f postgres guacamole
 ```
+
+
+If your database service name is different (for example `postgresql`), pass it explicitly:
+
+```powershell
+./init-guac-db.ps1 -DbService postgresql
+```
+
+```bash
+GUAC_DB_SERVICE=postgresql ./init-guac-db.sh
+```
+
+If `guacamole` is stuck restarting, run:
+
+```bash
+docker compose logs --tail=200 guacamole postgres
+```
+
+A common cause is missing/empty `GUAC_DB_PASSWORD`; the compose file now fails fast if it is not set.
