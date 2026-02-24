@@ -320,7 +320,7 @@ public class ApiControllerTests : IClassFixture<WebApplicationFactory<Program>>,
         var content = await response.Content.ReadAsStringAsync();
         content.Should().NotBeNullOrEmpty();
 
-        var result = JsonSerializer.Deserialize<FlagSubmissionResult>(content,
+        var result = JsonSerializer.Deserialize<CyberLabPlatform.Core.Interfaces.FlagSubmissionResult>(content,
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
         result.Should().NotBeNull();
@@ -344,7 +344,7 @@ public class ApiControllerTests : IClassFixture<WebApplicationFactory<Program>>,
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var content = await response.Content.ReadAsStringAsync();
-        var leaderboard = JsonSerializer.Deserialize<List<LeaderboardEntry>>(content,
+        var leaderboard = JsonSerializer.Deserialize<List<CyberLabPlatform.Core.Models.DTOs.LeaderboardEntry>>(content,
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
         leaderboard.Should().NotBeNull();
