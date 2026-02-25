@@ -8,6 +8,7 @@ import {
   LogOut, Menu, X,
 } from "lucide-react";
 import { useState } from "react";
+import { useMsal } from "@azure/msal-react";
 
 interface NavItem {
   label: string;
@@ -30,6 +31,7 @@ const navItems: NavItem[] = [
 
 export function Navbar() {
   const { user, isAuthenticated, logout } = useAuth();
+  const { instance } = useMsal();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -69,7 +71,7 @@ export function Navbar() {
               <p className="text-sm font-medium">{user?.name}</p>
               <p className="text-xs text-muted-foreground">{user?.role}</p>
             </div>
-            <Button variant="ghost" size="icon" onClick={logout}>
+            <Button variant="ghost" size="icon" onClick={() => { logout(); instance.logoutRedirect(); }}>
               <LogOut className="h-4 w-4" />
             </Button>
             <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setMobileOpen(!mobileOpen)}>

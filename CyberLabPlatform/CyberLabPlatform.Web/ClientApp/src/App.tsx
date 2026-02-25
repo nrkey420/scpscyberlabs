@@ -1,12 +1,16 @@
+import { useEffect } from "react";
 import { Routes, Route } from "react-router-dom";
+import { useMsal, useIsAuthenticated } from "@azure/msal-react";
+import { InteractionRequiredAuthError } from "@azure/msal-browser";
 import { Navbar } from "@/components/Navbar";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { Toaster } from "@/components/ui/toast";
 import { UserRole } from "@/types/models";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth, buildUserFromClaims } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Shield } from "lucide-react";
+import { loginRequest, tokenRequest } from "@/auth/msal";
 
 import Dashboard from "@/pages/Dashboard";
 import Templates from "@/pages/admin/Templates";
@@ -22,16 +26,7 @@ import Progress from "@/pages/student/Progress";
 import Leaderboard from "@/pages/student/Leaderboard";
 
 function LoginPage() {
-  const { login } = useAuth();
-
-  const demoLogin = (role: UserRole) => {
-    const users = {
-      [UserRole.Admin]: { id: "admin-1", name: "Admin User", email: "admin@scps.edu", role: UserRole.Admin },
-      [UserRole.Instructor]: { id: "inst-1", name: "Dr. Smith", email: "smith@scps.edu", role: UserRole.Instructor },
-      [UserRole.Student]: { id: "stud-1", name: "Jane Doe", email: "jane@scps.edu", role: UserRole.Student },
-    };
-    login(users[role], "demo-token-" + role);
-  };
+  const { instance } = useMsal();
 
   return (
     <div className="min-h-screen flex items-center justify-center">
@@ -42,10 +37,13 @@ function LoginPage() {
           <p className="text-sm text-muted-foreground">Cybersecurity Lab Orchestration Platform</p>
         </CardHeader>
         <CardContent className="space-y-3">
-          <p className="text-sm text-muted-foreground text-center mb-4">Select a demo role to continue</p>
-          <Button className="w-full" onClick={() => demoLogin(UserRole.Admin)}>Login as Admin</Button>
-          <Button className="w-full" variant="secondary" onClick={() => demoLogin(UserRole.Instructor)}>Login as Instructor</Button>
-          <Button className="w-full" variant="outline" onClick={() => demoLogin(UserRole.Student)}>Login as Student</Button>
+          <p className="text-sm text-muted-foreground text-center mb-4">Sign in with Microsoft Entra ID</p>
+          <Button
+            className="w-full"
+            onClick={() => instance.loginRedirect(loginRequest)}
+          >
+            Sign in
+          </Button>
         </CardContent>
       </Card>
     </div>
@@ -53,7 +51,36 @@ function LoginPage() {
 }
 
 export default function App() {
-  const { isAuthenticated } = useAuth();
+  const entraAuthenticated = useIsAuthenticated();
+  const { instance, accounts } = useMsal();
+  const { isAuthenticated, setAuthenticatedUser, logout } = useAuth();
+
+  useEffect(() => {
+    const syncAuth = async () => {
+      if (!entraAuthenticated || accounts.length === 0) {
+        logout();
+        return;
+      }
+
+      const account = accounts[0];
+      try {
+        const token = await instance.acquireTokenSilent({
+          ...tokenRequest,
+          account,
+        });
+
+        setAuthenticatedUser(buildUserFromClaims(account.idTokenClaims ?? {}), token.accessToken);
+      } catch (err) {
+        if (err instanceof InteractionRequiredAuthError) {
+          await instance.acquireTokenRedirect({ ...tokenRequest, account });
+          return;
+        }
+        throw err;
+      }
+    };
+
+    syncAuth();
+  }, [accounts, entraAuthenticated, instance, logout, setAuthenticatedUser]);
 
   if (!isAuthenticated) {
     return (

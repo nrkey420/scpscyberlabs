@@ -3,9 +3,9 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace CyberLabPlatform.Web.Controllers;
 
-[Authorize]
 public class LabsController : Controller
 {
+    [AllowAnonymous]
     [HttpGet("/")]
     [HttpGet("/labs")]
     [HttpGet("/labs/{**slug}")]
