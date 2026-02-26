@@ -48,16 +48,16 @@ export const getTemplate = (id: string) =>
 
 // Lab Sessions
 export const deployLab = (request: LabDeployRequest) =>
-  api.post<LabSession>("/sessions/deploy", request).then((r) => r.data);
+  api.post<LabSession>("/labs/deploy", request).then((r) => r.data);
 
 export const terminateLab = (sessionId: string) =>
-  api.post(`/sessions/${sessionId}/terminate`).then((r) => r.data);
+  api.post(`/labs/${sessionId}/terminate`).then((r) => r.data);
 
 export const getActiveSessions = () =>
-  api.get<LabSessionSummary[]>("/sessions/active").then((r) => r.data);
+  api.get<LabSessionSummary[]>("/labs/active").then((r) => r.data);
 
 export const getSession = (id: string) =>
-  api.get<LabSession>(`/sessions/${id}`).then((r) => r.data);
+  api.get<LabSession>(`/labs/${id}`).then((r) => r.data);
 
 // VM Operations
 export const pauseVM = (id: string) =>
@@ -110,7 +110,7 @@ export const getStudentProgress = (_sessionId: string) =>
 // Reports
 export const getReport = (sessionId: string, format: ReportFormat) =>
   api
-    .get(`/sessions/${sessionId}/report`, {
+    .get(`/reports/${sessionId}`, {
       params: { format },
       responseType: "blob",
     })
@@ -118,7 +118,7 @@ export const getReport = (sessionId: string, format: ReportFormat) =>
 
 export const getActivityLog = (sessionId: string) =>
   api
-    .get<ActivityLog[]>(`/sessions/${sessionId}/activity`)
+    .get<ActivityLog[]>(`/reports/${sessionId}/activity`)
     .then((r) => r.data);
 
 // Resources
@@ -130,14 +130,14 @@ export const getQuotas = () =>
 
 // System Config
 export const getSystemConfig = () =>
-  api.get<SystemConfig[]>("/config").then((r) => r.data);
+  api.get<SystemConfig[]>("/admin/config").then((r) => r.data);
 
 export const updateConfig = (key: string, value: string) =>
-  api.put(`/config/${key}`, { value }).then((r) => r.data);
+  api.put(`/admin/config/${key}`, { value }).then((r) => r.data);
 
 // Health
 export const getSystemHealth = () =>
-  api.get<SystemHealth>("/health").then((r) => r.data);
+  api.get<SystemHealth>("/admin/health").then((r) => r.data);
 
 // Users
 export const getUsers = () =>

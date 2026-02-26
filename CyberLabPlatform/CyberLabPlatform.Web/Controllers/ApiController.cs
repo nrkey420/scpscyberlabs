@@ -102,14 +102,27 @@ public class ApiController(
     }
 
     [HttpGet("labs/active")]
-    public async Task<ActionResult<List<LabSession>>> GetActiveSessions()
+    public async Task<ActionResult> GetActiveSessions()
     {
         var sessions = await context.LabSessions
             .Include(s => s.Template)
+            .Include(s => s.StudentAssignments)
             .Where(s => s.Status == LabStatus.Active || s.Status == LabStatus.Provisioning)
             .OrderByDescending(s => s.StartTime)
             .ToListAsync();
-        return Ok(sessions);
+
+        var result = sessions.Select(s => new
+        {
+            id = s.Id,
+            templateName = s.Template?.Name ?? "Unknown",
+            status = s.Status.ToString(),
+            studentCount = s.StudentAssignments.Count,
+            startedAt = s.StartTime,
+            endsAt = s.ScheduledEndTime,
+            averageProgress = 0,
+        });
+
+        return Ok(result);
     }
 
     [HttpGet("labs/{sessionId:guid}")]
@@ -489,6 +502,87 @@ public class ApiController(
             });
         }
     }
+
+    // ========================================================================
+    // Users
+    // ========================================================================
+
+    [HttpGet("users")]
+    [Authorize(Policy = "SystemAdministrator")]
+    public async Task<ActionResult> GetAllUsers()
+    {
+        // Pull users who have appeared in the system from the database.
+        // Roles are managed via Entra ID group membership; this endpoint
+        // reflects what is stored locally from lab activity.
+        var students = await context.StudentLabAssignments
+            .Select(a => new { id = a.StudentId, name = a.StudentName, email = a.StudentEmail, role = "Student" })
+            .Distinct()
+            .ToListAsync();
+
+        var instructorIds = await context.LabSessions
+            .Select(s => s.InstructorId)
+            .Distinct()
+            .ToListAsync();
+
+        var instructors = instructorIds
+            .Select(id => new { id, name = id, email = string.Empty, role = "Instructor" })
+            .ToList();
+
+        // Always include the currently authenticated user so the admin sees
+        // themselves even before any lab sessions have been created.
+        var currentId = User.FindFirst("oid")?.Value ?? string.Empty;
+        var currentName = User.FindFirst("name")?.Value ?? User.Identity?.Name ?? "Admin";
+        var currentEmail = User.FindFirst("preferred_username")?.Value ?? string.Empty;
+
+        var allUsers = students
+            .Cast<object>()
+            .Concat(instructors.Cast<object>())
+            .Concat(new[] { (object)new { id = currentId, name = currentName, email = currentEmail, role = "Admin" } })
+            .GroupBy(u => ((dynamic)u).id)
+            .Select(g => g.First())
+            .ToList();
+
+        return Ok(allUsers);
+    }
+
+    [HttpPut("users/{userId}/role")]
+    [Authorize(Policy = "SystemAdministrator")]
+    public ActionResult UpdateUserRole(string userId, [FromBody] UpdateUserRoleRequest request)
+    {
+        // Roles are assigned via Entra ID group membership (CyberLab-Admins,
+        // CyberLab-Teachers, CyberLab-Students). To change a user's role,
+        // move them to the appropriate group in the Azure portal.
+        logger.LogInformation("Role change requested for user {UserId} to {Role} — manage via Entra ID groups", userId, request.Role);
+        return Ok(new { message = "Role changes are managed via Entra ID group membership. Move the user to the appropriate group in the Azure portal." });
+    }
+
+    // ========================================================================
+    // Student Progress Summary
+    // ========================================================================
+
+    [HttpGet("student/progress")]
+    [Authorize(Policy = "Student")]
+    public async Task<ActionResult> GetStudentProgressSummary()
+    {
+        var studentId = User.FindFirst("oid")?.Value ?? User.Identity?.Name ?? "unknown";
+
+        var progressItems = await context.StudentProgress
+            .Where(p => p.StudentId == studentId)
+            .ToListAsync();
+
+        var assignmentCount = await context.StudentLabAssignments
+            .CountAsync(a => a.StudentId == studentId);
+
+        return Ok(new
+        {
+            totalSessions = assignmentCount,
+            completedSessions = 0,
+            totalPointsEarned = progressItems.Sum(p => p.PointsAwarded),
+            totalObjectivesCompleted = progressItems.Count(p => p.PointsAwarded > 0),
+            badges = Array.Empty<object>(),
+            recentActivity = Array.Empty<object>(),
+        });
+    }
 }
 
 // ========================================================================
@@ -509,4 +603,9 @@ public class FlagSubmitRequest
 public class UpdateConfigRequest
 {
     public string Value { get; set; } = string.Empty;
+}
+
+public class UpdateUserRoleRequest
+{
+    public string Role { get; set; } = string.Empty;
 }
