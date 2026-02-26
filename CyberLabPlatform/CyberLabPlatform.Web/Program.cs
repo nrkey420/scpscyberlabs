@@ -38,13 +38,15 @@ try
         .AddMicrosoftIdentityWebApi(builder.Configuration.GetSection("AzureAd"));
 
     // Authorization policies
+    // Accept both "SystemAdministrator" (Entra ID group claim) and "Admin"
+    // (legacy / alternate claim name) so either Entra ID group naming convention works.
     builder.Services.AddAuthorizationBuilder()
         .AddPolicy("SystemAdministrator", policy =>
-            policy.RequireRole("SystemAdministrator"))
+            policy.RequireRole("SystemAdministrator", "Admin"))
         .AddPolicy("Instructor", policy =>
-            policy.RequireRole("SystemAdministrator", "Instructor"))
+            policy.RequireRole("SystemAdministrator", "Admin", "Instructor"))
         .AddPolicy("Student", policy =>
-            policy.RequireRole("SystemAdministrator", "Instructor", "Student"));
+            policy.RequireRole("SystemAdministrator", "Admin", "Instructor", "Student"));
 
     // EF Core with PostgreSQL
     builder.Services.AddDbContext<CyberLabDbContext>(options =>
