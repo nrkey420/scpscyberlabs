@@ -11,6 +11,7 @@ namespace CyberLabPlatform.Web.Controllers;
 [ApiController]
 [Route("api")]
 [Authorize]
+[ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
 public class ApiController(
     CyberLabDbContext context,
     ILabOrchestrationService labOrchestration,
