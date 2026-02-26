@@ -17,12 +17,19 @@ public class PowerShellExecutor : IPowerShellExecutor, IDisposable
     public PowerShellExecutor(IConfiguration configuration, ILogger<PowerShellExecutor> logger)
     {
         _logger = logger;
-        _modulePath = configuration["PowerShell:ModulePath"]
-            ?? throw new InvalidOperationException("PowerShell:ModulePath configuration is required.");
+        _modulePath = configuration["PowerShell:ModulePath"] ?? string.Empty;
+        if (string.IsNullOrEmpty(_modulePath))
+            _logger.LogWarning("PowerShell:ModulePath is not configured. PowerShell execution will be unavailable.");
     }
 
     public async Task<PowerShellResult> ExecuteAsync(string scriptName, Dictionary<string, object?> parameters)
     {
+        if (string.IsNullOrEmpty(_modulePath))
+        {
+            _logger.LogError("Cannot execute PowerShell command '{Command}': PowerShell:ModulePath is not configured.", scriptName);
+            return new PowerShellResult { Success = false, Error = "PowerShell is not configured on this server. Set PowerShell:ModulePath in appsettings." };
+        }
+
         await _semaphore.WaitAsync();
         try
         {
