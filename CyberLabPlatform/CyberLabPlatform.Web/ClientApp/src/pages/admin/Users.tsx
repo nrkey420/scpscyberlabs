@@ -7,7 +7,7 @@ import { UserRole } from "@/types/models";
 import { Users as UsersIcon } from "lucide-react";
 
 export default function Users() {
-  const { data: users, isLoading } = useQuery({ queryKey: ["users"], queryFn: getUsers });
+  const { data: users, isLoading, isError, error } = useQuery({ queryKey: ["users"], queryFn: getUsers });
   const queryClient = useQueryClient();
 
   const roleMutation = useMutation({
@@ -34,6 +34,14 @@ export default function Users() {
       </h1>
 
       {isLoading && <p className="text-muted-foreground">Loading users...</p>}
+      {isError && (
+        <p className="text-destructive text-sm">
+          Failed to load users:{" "}
+          {(error as { response?: { status: number } })?.response?.status === 403
+            ? "Access denied — check that your account has the SystemAdministrator or Admin role in Entra ID."
+            : String(error)}
+        </p>
+      )}
 
       <Card>
         <CardHeader><CardTitle className="text-lg">All Users</CardTitle></CardHeader>
