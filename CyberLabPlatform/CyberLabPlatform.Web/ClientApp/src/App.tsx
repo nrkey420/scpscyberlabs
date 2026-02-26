@@ -50,6 +50,16 @@ function LoginPage() {
   );
 }
 
+function decodeJwtPayload(jwt: string): Record<string, unknown> {
+  try {
+    const base64Url = jwt.split(".")[1];
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+    return JSON.parse(atob(base64));
+  } catch {
+    return {};
+  }
+}
+
 export default function App() {
   const entraAuthenticated = useIsAuthenticated();
   const { instance, accounts } = useMsal();
@@ -69,7 +79,15 @@ export default function App() {
           account,
         });
 
-        setAuthenticatedUser(buildUserFromClaims(account.idTokenClaims ?? {}), token.accessToken);
+        // App roles are in the access token, not the ID token. Decode the
+        // access token payload and merge its roles claim so buildUserFromClaims
+        // can map the role correctly.
+        const accessTokenPayload = decodeJwtPayload(token.accessToken);
+        const claims = {
+          ...account.idTokenClaims,
+          roles: accessTokenPayload.roles ?? account.idTokenClaims?.roles,
+        };
+        setAuthenticatedUser(buildUserFromClaims(claims), token.accessToken);
       } catch (err) {
         if (err instanceof InteractionRequiredAuthError) {
           await instance.acquireTokenRedirect({ ...tokenRequest, account });
