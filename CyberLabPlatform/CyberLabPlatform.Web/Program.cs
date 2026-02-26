@@ -1,4 +1,5 @@
 using CyberLabPlatform.Core.Interfaces;
+using CyberLabPlatform.Infrastructure.PowerShell;
 using CyberLabPlatform.Web.BackgroundJobs;
 using CyberLabPlatform.Web.Data;
 using CyberLabPlatform.Web.Hubs;
@@ -97,6 +98,9 @@ try
 
     // Controllers
     builder.Services.AddControllers();
+
+    // PowerShell executor (singleton - manages a single runspace with semaphore-based concurrency)
+    builder.Services.AddSingleton<IPowerShellExecutor, PowerShellExecutor>();
 
     // Application services
     builder.Services.AddScoped<ILabOrchestrationService, LabOrchestrationService>();
